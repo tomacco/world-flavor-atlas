@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Flavor Atlas — Epicure Visualization</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: rgba(255,255,255,0.85); }
+  canvas { display: block; }
+
+  /* ─── LEFT PANEL ─────────────────────────────────── */
+  #left-panel {
+    position: fixed; top: 24px; left: 32px; z-index: 10;
+    display: flex; flex-direction: column; gap: 16px;
+    width: 280px;
+  }
+
+  #title { pointer-events: none; }
+  #title .author a { pointer-events: auto; }
+  #title h1 {
+    font-size: 32px; font-weight: 200; letter-spacing: 6px; text-transform: uppercase;
+    color: rgba(255,255,255,0.9);
+  }
+  #title .subtitle {
+    font-size: 13px; font-weight: 300; letter-spacing: 2px; color: rgba(255,255,255,0.45); margin-top: 4px;
+  }
+  #title .author {
+    font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 1px; margin-top: 2px;
+  }
+
+  /* ─── SEARCH ─────────────────────────────────────── */
+  #search-container { position: relative; width: 260px; }
+  #search-input {
+    width: 100%; padding: 10px 50px 10px 36px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: rgba(255,255,255,0.9);
+    font-size: 14px; backdrop-filter: blur(16px);
+    outline: none; transition: border-color 0.3s;
+  }
+  #search-input::placeholder { color: rgba(255,255,255,0.25); }
+  #search-input:focus { border-color: rgba(255,255,255,0.25); }
+  #search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: rgba(255,255,255,0.3); font-size: 14px; pointer-events: none;
+  }
+  #match-count {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 11px; padding: 1px 6px; border-radius: 4px;
+    background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5);
+    display: none;
+  }
+  #match-count.has-matches { display: block; }
+  #match-count.no-matches { display: block; background: rgba(255,68,68,0.2); color: rgba(255,100,100,0.8); }
+  #autocomplete {
+    margin-top: 4px; background: rgba(15,15,20,0.95);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+    backdrop-filter: blur(16px); overflow: hidden;
+    max-height: 320px; overflow-y: auto; display: none;
+  }
+  #autocomplete.visible { display: block; }
+  .autocomplete-item {
+    padding: 8px 12px; cursor: pointer; display: flex;
+    align-items: center; gap: 8px; font-size: 13px;
+    color: rgba(255,255,255,0.7); transition: background 0.15s;
+  }
+  .autocomplete-item:hover, .autocomplete-item.active {
+    background: rgba(255,255,255,0.08); color: #fff;
+  }
+  .autocomplete-item .dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .autocomplete-item .match { color: #fff; font-weight: 600; }
+
+  /* ─── SLIDER ─────────────────────────────────────── */
+  #slider-container { width: 260px; }
+  #slider-labels {
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+  }
+  .snap-btn {
+    border: none; background: none; color: rgba(255,255,255,0.4);
+    font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+    cursor: pointer; padding: 4px 8px; transition: color 0.2s;
+  }
+  .snap-btn:hover { color: rgba(255,255,255,0.7); }
+  .snap-btn.active { color: #fff; }
+  #slider-track-wrapper {
+    position: relative; width: 100%; height: 20px;
+    display: flex; align-items: center;
+  }
+  .snap-notch {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 3px; height: 12px; border-radius: 1.5px;
+    background: rgba(255,255,255,0.2); pointer-events: none;
+    transition: background 0.3s, height 0.3s, box-shadow 0.3s;
+  }
+  .snap-notch.nearby {
+    background: rgba(255,255,255,0.6); height: 16px;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+  }
+  #model-slider {
+    width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+    background: linear-gradient(to right, #ff4444, #bb66ff, #44dd88);
+    border-radius: 2px; outline: none; cursor: pointer;
+    position: relative; z-index: 1;
+  }
+  #model-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff;
+    box-shadow: 0 0 12px rgba(255,255,255,0.4);
+    cursor: grab;
+  }
+  #model-slider::-moz-range-thumb {
+    width: 16px; height: 16px; border: none;
+    border-radius: 50%; background: #fff;
+    box-shadow: 0 0 12px rgba(255,255,255,0.4);
+    cursor: grab;
+  }
+  #slider-desc {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: rgba(255,255,255,0.2); margin-top: 4px;
+  }
+
+  /* ─── RIGHT PANEL ────────────────────────────────── */
+  #right-panel {
+    position: fixed; top: 24px; right: 32px; z-index: 10;
+    display: flex; flex-direction: column; gap: 12px;
+    align-items: flex-end;
+  }
+
+  #legend {
+    background: rgba(10,10,15,0.8); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px 16px; backdrop-filter: blur(12px);
+    font-size: 12px; min-width: 160px;
+  }
+  #legend-header {
+    display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+    margin-bottom: 8px;
+  }
+  #legend-header span { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  #legend-header .arrow { color: rgba(255,255,255,0.3); font-size: 10px; transition: transform 0.2s; }
+  #legend-items.collapsed { display: none; }
+  .legend-row {
+    display: flex; align-items: center; gap: 8px; padding: 4px 4px;
+    cursor: pointer; border-radius: 4px; transition: background 0.15s;
+    user-select: none;
+  }
+  .legend-row:hover { background: rgba(255,255,255,0.06); }
+  .legend-row.inactive .legend-dot { opacity: 0.25; }
+  .legend-row.inactive .legend-label { opacity: 0.3; }
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    transition: opacity 0.2s;
+  }
+  .legend-label { color: rgba(255,255,255,0.6); font-size: 11px; transition: opacity 0.2s; }
+  #legend-show-all {
+    display: block; width: 100%; margin-top: 6px; padding: 4px 0;
+    background: transparent; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px; color: rgba(255,255,255,0.4); font-size: 10px;
+    letter-spacing: 1px; cursor: pointer; text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  #legend-show-all:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+
+  #axes-toggle {
+    padding: 8px 16px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer; border-radius: 6px;
+    backdrop-filter: blur(12px); transition: all 0.2s;
+  }
+  #axes-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  #axes-toggle.active { background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.25); }
+
+  /* ─── INFO PANEL ─────────────────────────────────── */
+  #info-panel {
+    position: fixed; bottom: 32px; left: 32px; z-index: 10;
+    max-width: 320px; pointer-events: none;
+  }
+  #info-panel h3 {
+    font-size: 18px; font-weight: 400; margin-bottom: 6px; color: #fff;
+    text-shadow: 0 0 20px rgba(255,255,255,0.3);
+  }
+  #info-panel .region-tag {
+    font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 8px;
+  }
+  #info-panel .neighbors {
+    font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.6;
+  }
+  #info-panel .neighbors span { color: rgba(255,255,255,0.9); }
+  #info-panel.hidden { display: none; }
+
+  /* ─── SLERP PANEL ────────────────────────────────── */
+  #slerp-panel {
+    position: fixed; bottom: 32px; left: 370px; z-index: 10;
+    pointer-events: auto;
+  }
+  #slerp-panel.hidden { display: none; }
+  #slerp-panel p { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase; }
+  .slerp-btn {
+    padding: 4px 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.7); font-size: 11px; cursor: pointer; border-radius: 4px;
+    margin: 2px; transition: all 0.2s;
+  }
+  .slerp-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+  #slerp-info {
+    position: fixed; bottom: 120px; left: 370px; z-index: 10; pointer-events: none;
+    font-size: 12px; color: rgba(255,255,255,0.7);
+  }
+  #slerp-info.hidden { display: none; }
+  #slerp-info .waypoint { color: #fff; font-weight: 500; }
+
+  /* ─── MODEL INFO CARD ────────────────────────────── */
+  #model-info {
+    margin-top: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px 14px;
+    backdrop-filter: blur(12px);
+    transition: border-color 0.4s;
+  }
+  #model-info-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  #model-info-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    transition: background 0.4s;
+  }
+  #model-info-name {
+    font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(255,255,255,0.8);
+    transition: color 0.4s;
+  }
+  #model-info-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4);
+    margin-left: auto; letter-spacing: 0.5px;
+  }
+  #model-info-desc {
+    font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.45);
+    transition: color 0.4s;
+  }
+  #model-info-desc strong { color: rgba(255,255,255,0.65); font-weight: 500; }
+  #model-info-example {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px; color: rgba(255,255,255,0.3);
+  }
+  #model-info-example span { color: rgba(255,255,255,0.55); }
+
+  /* ─── OTHER ──────────────────────────────────────── */
+  #hover-label {
+    position: fixed; z-index: 20; pointer-events: none; display: none;
+    background: rgba(10,10,15,0.85); border: 1px solid rgba(255,255,255,0.15);
+    padding: 4px 10px; border-radius: 4px; font-size: 12px; color: #fff;
+    backdrop-filter: blur(8px); white-space: nowrap;
+  }
+
+  #instructions {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 10;
+    font-size: 11px; color: rgba(255,255,255,0.25); letter-spacing: 1px; pointer-events: none;
+    transition: opacity 1s;
+  }
+
+  /* ─── INFO BUTTON + MODAL ───────────────────────── */
+  #info-btn {
+    position: fixed; bottom: 32px; right: 32px; z-index: 15;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5); font-size: 18px; font-weight: 300;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(12px); transition: all 0.2s;
+    font-family: Georgia, serif; font-style: italic;
+  }
+  #info-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+  #keyboard-btn {
+    position: fixed; bottom: 32px; right: 80px; z-index: 15;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5); font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(12px); transition: all 0.2s;
+  }
+  #keyboard-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+  #modal-overlay {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    background: rgba(5,5,10,0.75); backdrop-filter: blur(8px);
+    align-items: center; justify-content: center;
+  }
+  #modal-overlay.visible { display: flex; }
+
+  #modal {
+    background: rgba(18,18,25,0.97); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 32px 36px; max-width: 560px; width: 90%;
+    max-height: 80vh; overflow-y: auto; position: relative;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  }
+  #modal h2 {
+    font-size: 22px; font-weight: 300; letter-spacing: 3px;
+    margin-bottom: 16px; color: rgba(255,255,255,0.9);
+  }
+  #modal p, #modal li {
+    font-size: 13px; line-height: 1.7; color: rgba(255,255,255,0.6);
+    margin-bottom: 10px;
+  }
+  #modal strong { color: rgba(255,255,255,0.85); font-weight: 500; }
+  #modal .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(255,255,255,0.35);
+    margin: 20px 0 8px; display: block;
+  }
+  #modal ul { list-style: none; padding: 0; }
+  #modal li { padding: 2px 0; }
+  #modal .key {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.7);
+    margin-right: 6px; min-width: 24px; text-align: center;
+  }
+  #modal-close {
+    position: absolute; top: 16px; right: 20px;
+    background: none; border: none; color: rgba(255,255,255,0.3);
+    font-size: 20px; cursor: pointer; transition: color 0.2s;
+  }
+  #modal-close:hover { color: rgba(255,255,255,0.7); }
+
+  /* ─── TOOLTIPS ──────────────────────────────────── */
+  [data-tooltip] { position: relative; }
+  [data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%); white-space: nowrap;
+    padding: 4px 10px; border-radius: 4px; font-size: 11px;
+    background: rgba(10,10,15,0.92); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7); pointer-events: none; z-index: 30;
+  }
+
+  /* ─── WELCOME OVERLAY ──────────────────────────── */
+  #welcome {
+    position: fixed; inset: 0; z-index: 200; display: flex;
+    background: rgba(5,5,10,0.88); backdrop-filter: blur(12px);
+    align-items: center; justify-content: center;
+    transition: opacity 0.6s;
+  }
+  #welcome.hidden { opacity: 0; pointer-events: none; }
+  #welcome-card {
+    text-align: center; max-width: 480px; padding: 48px 40px;
+  }
+  #welcome-card h1 {
+    font-size: 42px; font-weight: 200; letter-spacing: 8px;
+    margin-bottom: 8px; color: rgba(255,255,255,0.9);
+  }
+  #welcome-card .sub {
+    font-size: 14px; color: rgba(255,255,255,0.4); letter-spacing: 2px;
+    margin-bottom: 32px;
+  }
+  #welcome-card p {
+    font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.55);
+    margin-bottom: 24px; text-align: left;
+  }
+  #welcome-card .hint {
+    font-size: 12px; color: rgba(255,255,255,0.3); margin-bottom: 8px;
+  }
+  #welcome-start {
+    padding: 12px 40px; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85);
+    font-size: 14px; letter-spacing: 2px; cursor: pointer;
+    border-radius: 8px; transition: all 0.3s;
+    backdrop-filter: blur(12px);
+  }
+  #welcome-start:hover {
+    background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35);
+    color: #fff;
+  }
+  /* ─── MOBILE RESPONSIVE ──────────────────────────── */
+  @media (max-width: 768px) {
+    #left-panel {
+      top: 12px; left: 12px; right: 12px; width: auto; gap: 10px;
+    }
+    #title h1 { font-size: 22px; letter-spacing: 4px; }
+    #title .subtitle { font-size: 11px; letter-spacing: 1.5px; }
+    #title .author { font-size: 10px; }
+    #title .author a { pointer-events: auto; }
+
+    #search-container { width: 100%; }
+    #search-input { font-size: 16px; padding: 10px 44px 10px 34px; }
+
+    #slider-container { width: 100%; }
+    .snap-btn { padding: 3px 6px; font-size: 10px; letter-spacing: 1px; }
+    #slider-desc { font-size: 9px; }
+
+    #model-info { padding: 10px 12px; }
+    #model-info-name { font-size: 11px; }
+    #model-info-desc { font-size: 11px; }
+    #model-info-example { font-size: 10px; }
+
+    #right-panel {
+      top: auto; bottom: 80px; right: 12px;
+    }
+    #legend { padding: 8px 12px; min-width: 130px; }
+    .legend-label { font-size: 10px; }
+    #axes-toggle { font-size: 11px; padding: 6px 12px; }
+
+    #info-panel {
+      bottom: 12px; left: 12px; right: 12px; max-width: none;
+    }
+    #info-panel h3 { font-size: 15px; }
+
+    #slerp-panel { left: 12px; bottom: 140px; }
+    #slerp-info { left: 12px; bottom: 180px; }
+
+    #info-btn, #keyboard-btn {
+      width: 32px; height: 32px; font-size: 14px;
+    }
+    #info-btn { bottom: 16px; right: 16px; }
+    #keyboard-btn { bottom: 16px; right: 58px; }
+
+    #instructions { font-size: 10px; bottom: 16px; }
+
+    #modal { padding: 24px 20px; max-width: 95%; }
+    #modal h2 { font-size: 18px; }
+    #modal p, #modal li { font-size: 12px; }
+
+    #welcome-card { padding: 32px 24px; }
+    #welcome-card h1 { font-size: 30px; letter-spacing: 6px; }
+    #welcome-card .sub { font-size: 12px; }
+    #welcome-card p { font-size: 13px; }
+    #welcome-start { padding: 10px 32px; font-size: 13px; }
+
+    #hover-label { display: none !important; }
+  }
+
+  @media (max-width: 480px) {
+    #left-panel { top: 8px; left: 8px; right: 8px; gap: 8px; }
+    #title h1 { font-size: 18px; letter-spacing: 3px; }
+    #title .subtitle { display: none; }
+    #right-panel { display: none; }
+    #model-info { display: none; }
+    #info-btn { bottom: 12px; right: 12px; }
+    #keyboard-btn { bottom: 12px; right: 52px; }
+  }
+
+  /* Touch device: make slider thumb bigger for finger tapping */
+  @media (pointer: coarse) {
+    #model-slider::-webkit-slider-thumb { width: 24px; height: 24px; }
+    #model-slider::-moz-range-thumb { width: 24px; height: 24px; }
+    .snap-btn { padding: 6px 10px; }
+    .slerp-btn { padding: 6px 14px; font-size: 12px; }
+    .legend-row { padding: 5px 0; }
+    .autocomplete-item { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+<div id="left-panel">
+  <div id="title">
+    <h1>Epicure</h1>
+    <p class="subtitle">Navigating the Geometry of Food</p>
+    <p class="author">by <a href="https://github.com/tomacco/world-flavor-atlas" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.2);transition:border-color 0.2s">@tomacco</a></p>
+  </div>
+
+  <div id="search-container">
+    <svg id="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search-input" placeholder="Search ingredients..." autocomplete="off" spellcheck="false">
+    <span id="match-count"></span>
+    <div id="autocomplete"></div>
+  </div>
+
+  <div id="slider-container">
+    <div id="slider-labels">
+      <button class="snap-btn active" data-value="0">COOC</button>
+      <button class="snap-btn" data-value="1">CORE</button>
+      <button class="snap-btn" data-value="2">CHEM</button>
+    </div>
+    <div id="slider-track-wrapper">
+      <div id="snap-notch-1" class="snap-notch" style="left:50%"></div>
+      <input type="range" id="model-slider" min="0" max="2" step="0.01" value="0">
+    </div>
+    <div id="slider-desc">
+      <span>co-occurrence</span>
+      <span>chemistry</span>
+    </div>
+  </div>
+
+  <div id="model-info">
+    <div id="model-info-header">
+      <div id="model-info-dot"></div>
+      <div id="model-info-name">COOC</div>
+      <div id="model-info-tag">active</div>
+    </div>
+    <div id="model-info-desc">
+      Organized by <strong>recipe co-occurrence</strong>. Ingredients that get cooked together in the same dishes appear as neighbors.
+    </div>
+    <div id="model-info-example">
+      e.g. chicken → <span>garlic, onion, black pepper, turkey</span>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="right-panel">
+  <div id="legend">
+    <div id="legend-header">
+      <span>Regions</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div id="legend-items"></div>
+  </div>
+  <button id="axes-toggle" data-tooltip="Show flavor direction axes">Sensory Axes</button>
+</div>
+
+<!-- INFO + SLERP -->
+<div id="info-panel" class="hidden">
+  <h3 id="info-name"></h3>
+  <div class="region-tag" id="info-region"></div>
+  <div class="neighbors" id="info-neighbors"></div>
+</div>
+
+<div id="slerp-panel" class="hidden">
+  <p>SLERP Journey</p>
+  <div id="slerp-buttons"></div>
+</div>
+
+<div id="slerp-info" class="hidden"></div>
+
+<!-- WELCOME OVERLAY -->
+<div id="welcome">
+  <div id="welcome-card">
+    <h1>EPICURE</h1>
+    <div class="sub">Navigating the Geometry of Food</div>
+    <p>
+      You're looking at <strong>250 food ingredients</strong> from cuisines around the world,
+      mapped into 3D space by how they relate to each other.
+      Ingredients that appear together in recipes cluster together.
+      Ingredients that share flavor chemistry pull closer.
+    </p>
+    <p>
+      Three embedding models — <strong>COOC</strong> (co-occurrence in recipes),
+      <strong>CORE</strong> (blended), and <strong>CHEM</strong> (flavor chemistry) —
+      each organize the same ingredients differently.
+      Drag the slider to watch the clusters reshape in real time.
+    </p>
+    <div class="hint">Based on the paper by Radzikowski &amp; Chen (2026), trained on 4.14M recipes across 7 languages.</div>
+    <div class="hint" style="margin-bottom: 24px">Visualization by <a href="https://github.com/tomacco/world-flavor-atlas" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.45);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">@tomacco</a></div>
+    <button id="welcome-start">EXPLORE</button>
+  </div>
+</div>
+
+<!-- INFO + KEYBOARD BUTTONS -->
+<button id="keyboard-btn" data-tooltip="Keyboard shortcuts">&#9000;</button>
+<button id="info-btn" data-tooltip="About this visualization">i</button>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <button id="modal-close">&times;</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<div id="hover-label"></div>
+<div id="instructions">Drag slider to reshape clusters · Click ingredients to explore</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+
+// ─── REGION DATA ──────────────────────────────────────────────
+const REGIONS = {
+  'East Asian':        { color: new THREE.Color(0xff4444), hex: '#ff4444' },
+  'Japanese':          { color: new THREE.Color(0xff8833), hex: '#ff8833' },
+  'Southeast Asian':   { color: new THREE.Color(0xffcc33), hex: '#ffcc33' },
+  'South Asian':       { color: new THREE.Color(0x88eeff), hex: '#88eeff' },
+  'Latin American':    { color: new THREE.Color(0x4488ff), hex: '#4488ff' },
+  'Mediterranean':     { color: new THREE.Color(0xbb66ff), hex: '#bb66ff' },
+  'Eastern European':  { color: new THREE.Color(0xff8877), hex: '#ff8877' },
+  'Western Atlantic':  { color: new THREE.Color(0x44dd88), hex: '#44dd88' },
+  'Universal':         { color: new THREE.Color(0x888899), hex: '#888899' },
+};
+
+const ingredients = {
+  'East Asian': ['soy sauce','sesame oil','ginger','rice vinegar','tofu','bok choy','shiitake mushroom','bamboo shoot','scallion','star anise','five spice','hoisin sauce','rice wine','bean sprout','water chestnut','wonton wrapper','black bean sauce','chili oil','Sichuan pepper','oyster sauce','shaoxing wine','doubanjiang','white pepper','Chinese broccoli','taro','lotus root','snow pea','long bean','fermented black bean','century egg'],
+  'Japanese': ['miso','dashi','wasabi','mirin','sake','kombu','bonito','panko','yuzu','shiso','daikon','edamame','matcha','soba noodle','udon noodle','pickled ginger','natto','mochi','furikake','ponzu','togarashi','umeboshi','katsuobushi','rice bran','shimeji'],
+  'Southeast Asian': ['fish sauce','lemongrass','coconut milk','galangal','kaffir lime leaf','palm sugar','tamarind paste','shrimp paste','rice noodle','Thai basil','pandan leaf','sambal','laksa paste','belacan','bird\'s eye chili','curry paste','coconut cream','glutinous rice','kangkong','torch ginger','kerisik','rendang paste','tempeh','kecap manis','candlenut'],
+  'South Asian': ['turmeric','cumin','coriander','cardamom','garam masala','ghee','curry leaf','fenugreek','mustard seed','lentil','chickpea','chili powder','asafoetida','paneer','basmati rice','masoor dal','urad dal','chana dal','sambar powder','curry powder','fennel seed','nigella seed','amchur','jaggery','tamarind'],
+  'Latin American': ['lime','cilantro','avocado','black bean','corn tortilla','jalapeño','chipotle','tomatillo','queso fresco','salsa verde','fajita seasoning','achiote','epazote','plantain','pinto bean','guajillo chili','ancho chili','masa harina','cotija cheese','oregano mexicano','nopal','pepita','chayote','huitlacoche','piloncillo'],
+  'Mediterranean': ['olive oil','basil','oregano','tomato','lemon','parsley','rosemary','thyme','feta','kalamata olive','capers','pine nut','balsamic vinegar','fennel','artichoke','sun-dried tomato','ricotta','mozzarella','prosciutto','pancetta','anchovy','saffron','harissa','za\'atar','sumac','tahini','pomegranate','preserved lemon','couscous','bulgur'],
+  'Eastern European': ['sour cream','dill','beet','caraway','horseradish','cabbage','potato','rye flour','paprika','sauerkraut','poppy seed','buckwheat','cottage cheese','pickle','marjoram','juniper berry','kvass','farmers cheese','lingonberry','smoked fish'],
+  'Western Atlantic': ['butter','cheddar cheese','cream','bacon','maple syrup','vanilla','brown sugar','ketchup','mustard','mayonnaise','ranch dressing','steak sauce','turkey','cranberry','cornbread','biscuit','peanut butter','hot dog','BBQ sauce','cream cheese','American cheese','buttermilk','corn syrup','graham cracker','marshmallow'],
+  'Universal': ['salt','black pepper','onion','garlic','egg','sugar','flour','water','vegetable oil','vinegar','milk','rice','chicken','tomato paste','cream of chicken soup','chicken broth','lemon juice','chocolate','cocoa powder','peanut'],
+};
+
+// ─── CENTROIDS (on a sphere of radius ~6) ─────────────────────
+const centroids = {
+  'East Asian':       new THREE.Vector3( 5.5,  1.5,  2.0),
+  'Japanese':         new THREE.Vector3( 4.5,  3.5,  3.5),
+  'Southeast Asian':  new THREE.Vector3( 4.0, -1.0,  4.5),
+  'South Asian':      new THREE.Vector3( 1.5, -0.5,  5.5),
+  'Latin American':   new THREE.Vector3(-4.5, -2.0,  3.0),
+  'Mediterranean':    new THREE.Vector3(-3.0,  3.5,  3.5),
+  'Eastern European': new THREE.Vector3(-2.5,  4.5, -3.0),
+  'Western Atlantic': new THREE.Vector3(-4.0,  0.5, -4.5),
+  'Universal':        new THREE.Vector3( 0.0,  0.0,  0.0),
+};
+
+// Chem model shifts centroids slightly
+const chemCentroids = {};
+for (const [k, v] of Object.entries(centroids)) {
+  chemCentroids[k] = v.clone().add(new THREE.Vector3(
+    (Math.random()-0.5)*2, (Math.random()-0.5)*2, (Math.random()-0.5)*2
+  ));
+}
+chemCentroids['Universal'] = new THREE.Vector3(0,0,0);
+
+// ─── SEEDED RANDOM ────────────────────────────────────────────
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(42);
+function gaussRng() {
+  let u = 0, v = 0;
+  while(u === 0) u = rng();
+  while(v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// ─── GENERATE POSITIONS ──────────────────────────────────────
+const allIngredients = []; // {name, region, cooc, core, chem}
+
+for (const [region, items] of Object.entries(ingredients)) {
+  const c = centroids[region];
+  const cc = chemCentroids[region];
+  const isUniversal = region === 'Universal';
+  for (const name of items) {
+    const coocNoise = isUniversal ? 2.5 : 1.8;
+    const coreNoise = isUniversal ? 1.5 : 0.8;
+    const chemNoise = isUniversal ? 2.5 : 1.8;
+    const coocOff = new THREE.Vector3(gaussRng()*coocNoise, gaussRng()*coocNoise, gaussRng()*coocNoise);
+    const coreOff = new THREE.Vector3(gaussRng()*coreNoise, gaussRng()*coreNoise, gaussRng()*coreNoise);
+    const chemOff = new THREE.Vector3(gaussRng()*chemNoise, gaussRng()*chemNoise, gaussRng()*chemNoise);
+    allIngredients.push({
+      name,
+      region,
+      cooc: c.clone().add(coocOff),
+      core: c.clone().add(coreOff),
+      chem: cc.clone().add(chemOff),
+    });
+  }
+}
+
+const nameIndex = {};
+allIngredients.forEach((ing, i) => { nameIndex[ing.name.toLowerCase()] = i; });
+function findIdx(name) { return nameIndex[name.toLowerCase()] ?? -1; }
+
+// ─── HARDCODED NEIGHBORS ─────────────────────────────────────
+const hardcodedNeighbors = {
+  'chicken':   { cooc: ['garlic','onion','black pepper','turkey','cranberry'], core: ['turkey','bacon','cream','cream of chicken soup','chicken broth'], chem: ['turkey','bacon','cream of chicken soup','cream','peanut'] },
+  'salmon':    { cooc: ['wasabi','avocado','ponzu','balsamic vinegar','dill'], core: ['smoked fish','dill','miso','bonito','mirin'], chem: ['smoked fish','bonito','miso','dill','kombu'] },
+  'basil':     { cooc: ['parsley','olive oil','oregano','black pepper','lemon'], core: ['oregano','rosemary','thyme','olive oil','tomato'], chem: ['oregano','rosemary','thyme','parsley','fennel'] },
+  'soy sauce': { cooc: ['sesame oil','shiitake mushroom','ginger','oyster sauce','rice vinegar'], core: ['sesame oil','oyster sauce','shaoxing wine','doubanjiang','rice vinegar'], chem: ['scallion','bamboo shoot','bok choy','sake','mirin'] },
+  'chocolate': { cooc: ['cocoa powder','vanilla','marshmallow','peanut butter','brown sugar'], core: ['cocoa powder','vanilla','cream','brown sugar','marshmallow'], chem: ['cocoa powder','marshmallow','cream','vanilla','brown sugar'] },
+  'cumin':     { cooc: ['garlic','coriander','chili powder','black pepper','turmeric'], core: ['chili powder','coriander','turmeric','chickpea','fenugreek'], chem: ['turmeric','coriander','black pepper','parsley','chili powder'] },
+  'lentil':    { cooc: ['turmeric','mustard seed','pomegranate','sambar powder','cumin'], core: ['chickpea','lemon','olive oil','cumin','coriander'], chem: ['chickpea','cumin','coriander','turmeric','fenugreek'] },
+};
+
+// ─── SLERP JOURNEYS ──────────────────────────────────────────
+const slerpJourneys = {
+  'rice': {
+    'South Asian': ['curry leaf', 'masoor dal', 'urad dal', 'chana dal'],
+    'East Asian': ['rice vinegar', 'soy sauce', 'sesame oil', 'tofu'],
+    'Southeast Asian': ['coconut milk', 'fish sauce', 'lemongrass', 'galangal'],
+    'Japanese': ['mirin', 'sake', 'dashi', 'kombu'],
+  },
+  'chicken': {
+    'South Asian': ['turmeric', 'garam masala', 'curry leaf', 'ghee'],
+    'East Asian': ['soy sauce', 'ginger', 'sesame oil', 'star anise'],
+    'Mediterranean': ['olive oil', 'lemon', 'oregano', 'rosemary'],
+    'Latin American': ['lime', 'cilantro', 'chipotle', 'avocado'],
+  },
+  'tomato': {
+    'Mediterranean': ['olive oil', 'basil', 'oregano', 'mozzarella'],
+    'South Asian': ['turmeric', 'cumin', 'coriander', 'garam masala'],
+    'Latin American': ['cilantro', 'jalapeño', 'lime', 'avocado'],
+  },
+  'egg': {
+    'Japanese': ['dashi', 'mirin', 'soy sauce', 'panko'],
+    'Mediterranean': ['olive oil', 'feta', 'oregano', 'tomato'],
+    'Western Atlantic': ['bacon', 'cheddar cheese', 'butter', 'cream cheese'],
+  },
+  'garlic': {
+    'East Asian': ['soy sauce', 'ginger', 'sesame oil', 'scallion'],
+    'Mediterranean': ['olive oil', 'basil', 'rosemary', 'thyme'],
+    'South Asian': ['cumin', 'coriander', 'turmeric', 'garam masala'],
+  },
+};
+
+// ─── INTERPOLATED POSITION HELPER ────────────────────────────
+function getInterpolatedPosition(idx, sliderValue) {
+  if (sliderValue <= 1) {
+    const t = sliderValue;
+    return new THREE.Vector3().lerpVectors(allIngredients[idx].cooc, allIngredients[idx].core, t);
+  } else {
+    const t = sliderValue - 1;
+    return new THREE.Vector3().lerpVectors(allIngredients[idx].core, allIngredients[idx].chem, t);
+  }
+}
+
+// Get the nearest discrete model name for neighbor lookups
+function getEffectiveModel(sliderValue) {
+  if (sliderValue < 0.05) return 'cooc';
+  if (Math.abs(sliderValue - 1) < 0.05) return 'core';
+  if (sliderValue > 1.95) return 'chem';
+  return null; // interpolated — use distance
+}
+
+// ─── COMPUTE NEIGHBORS ───────────────────────────────────────
+function computeNeighbors(idx, sliderValue) {
+  const model = getEffectiveModel(sliderValue);
+  if (model) {
+    const name = allIngredients[idx].name.toLowerCase();
+    const hc = hardcodedNeighbors[name];
+    if (hc) {
+      return hc[model].map(n => {
+        const i = findIdx(n);
+        return { name: n, idx: i };
+      }).filter(n => n.idx >= 0);
+    }
+    const pos = allIngredients[idx][model];
+    const dists = allIngredients.map((ing, i) => ({ i, d: i === idx ? Infinity : pos.distanceTo(ing[model]) }));
+    dists.sort((a,b) => a.d - b.d);
+    return dists.slice(0,5).map(d => ({ name: allIngredients[d.i].name, idx: d.i }));
+  }
+  // Interpolated: use euclidean distance from interpolated positions
+  const pos = getInterpolatedPosition(idx, sliderValue);
+  const dists = allIngredients.map((ing, i) => ({
+    i,
+    d: i === idx ? Infinity : pos.distanceTo(getInterpolatedPosition(i, sliderValue))
+  }));
+  dists.sort((a,b) => a.d - b.d);
+  return dists.slice(0,5).map(d => ({ name: allIngredients[d.i].name, idx: d.i }));
+}
+
+// ─── THREE.JS SETUP ──────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0a0a0f, 0.03);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 200);
+camera.position.set(14, 8, 14);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x0a0a0f);
+renderer.toneMapping = THREE.ReinhardToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.minDistance = 5;
+controls.maxDistance = 50;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.3;
+
+// Bloom
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  1.0, 0.4, 0.75
+);
+composer.addPass(bloomPass);
+
+// ─── REFERENCE GRID ─────────────────────────────────────────
+{
+  const grid = new THREE.GridHelper(40, 40, 0x222233, 0x151520);
+  grid.position.y = -8;
+  scene.add(grid);
+}
+
+// ─── MAIN PARTICLES ──────────────────────────────────────────
+let sliderValue = 0; // 0=cooc, 1=core, 2=chem
+const count = allIngredients.length;
+const geometry = new THREE.BufferGeometry();
+const positions = new Float32Array(count * 3);
+const colors = new Float32Array(count * 3);
+const sizes = new Float32Array(count);
+const baseColors = new Float32Array(count * 3);
+const particleOpacities = new Float32Array(count).fill(1.0);
+
+function updatePositionsFromSlider(sv) {
+  for (let i = 0; i < count; i++) {
+    const p = getInterpolatedPosition(i, sv);
+    positions[i*3] = p.x;
+    positions[i*3+1] = p.y;
+    positions[i*3+2] = p.z;
+  }
+  const posAttr = geometry.getAttribute('position');
+  if (posAttr) posAttr.needsUpdate = true;
+}
+
+// Initialize positions array at slider=0 (cooc) — attribute not yet created, that's fine
+updatePositionsFromSlider(0);
+
+for (let i = 0; i < count; i++) {
+  const c = REGIONS[allIngredients[i].region].color;
+  colors[i*3] = c.r; colors[i*3+1] = c.g; colors[i*3+2] = c.b;
+  baseColors[i*3] = c.r; baseColors[i*3+1] = c.g; baseColors[i*3+2] = c.b;
+  sizes[i] = allIngredients[i].region === 'Universal' ? 0.45 : 0.35;
+}
+
+geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+geometry.setAttribute('opacity', new THREE.BufferAttribute(particleOpacities, 1));
+
+const pointsMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+  },
+  vertexShader: `
+    attribute float size;
+    attribute vec3 color;
+    attribute float opacity;
+    varying vec3 vColor;
+    varying float vOpacity;
+    uniform float uPixelRatio;
+    void main() {
+      vColor = color;
+      vOpacity = opacity;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * uPixelRatio * (500.0 / -mvPosition.z);
+      gl_PointSize = max(gl_PointSize, 4.0);
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      float d = length(gl_PointCoord - vec2(0.5));
+      if (d > 0.5) discard;
+      float alpha = 1.0 - smoothstep(0.15, 0.5, d);
+      float glow = exp(-d * 3.0) * 0.8;
+      float core = smoothstep(0.25, 0.0, d) * 0.4;
+      gl_FragColor = vec4(vColor * (1.0 + glow * 2.5 + core), (alpha + glow) * vOpacity);
+    }
+  `,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+
+const points = new THREE.Points(geometry, pointsMaterial);
+scene.add(points);
+
+// ─── NEIGHBOR LINES ──────────────────────────────────────────
+const lineGroup = new THREE.Group();
+scene.add(lineGroup);
+let selectedIdx = -1;
+
+function clearLines() {
+  while(lineGroup.children.length) lineGroup.remove(lineGroup.children[0]);
+}
+
+function showNeighborLines(idx) {
+  clearLines();
+  const neighbors = computeNeighbors(idx, sliderValue);
+  const srcPos = getInterpolatedPosition(idx, sliderValue);
+
+  // Info panel
+  const panel = document.getElementById('info-panel');
+  panel.classList.remove('hidden');
+  document.getElementById('info-name').textContent = allIngredients[idx].name;
+  const regionTag = document.getElementById('info-region');
+  regionTag.textContent = allIngredients[idx].region;
+  regionTag.style.background = REGIONS[allIngredients[idx].region].hex + '33';
+  regionTag.style.color = REGIONS[allIngredients[idx].region].hex;
+
+  const model = getEffectiveModel(sliderValue);
+  const modelLabel = model ? model.toUpperCase() : 'INTERP';
+  const neighborsDiv = document.getElementById('info-neighbors');
+  neighborsDiv.innerHTML = `<div style="margin-bottom:4px;color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:1px">${modelLabel} NEIGHBORS</div>` +
+    neighbors.map((n,i) => `<div>${i+1}. <span>${n.name}</span></div>`).join('');
+
+  // Draw lines
+  for (const n of neighbors) {
+    if (n.idx < 0) continue;
+    const dstPos = getInterpolatedPosition(n.idx, sliderValue);
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([srcPos, dstPos]);
+    // Use a tube geometry for thicker lines
+    const curve = new THREE.LineCurve3(srcPos, dstPos);
+    const tubeGeo = new THREE.TubeGeometry(curve, 1, 0.04, 6, false);
+    const tubeMat = new THREE.MeshBasicMaterial({
+      color: REGIONS[allIngredients[idx].region].color,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+    });
+    lineGroup.add(new THREE.Mesh(tubeGeo, tubeMat));
+  }
+
+  updateSlerpPanel(idx);
+}
+
+// ─── SLERP PANEL & ANIMATION ────────────────────────────────
+let slerpActive = false;
+let slerpMesh = null;
+let slerpCurve = null;
+let slerpProgress = 0;
+let slerpLabels = [];
+let slerpTrailPoints = [];
+let slerpTrailLine = null;
+
+function updateSlerpPanel(idx) {
+  const panel = document.getElementById('slerp-panel');
+  const btnsDiv = document.getElementById('slerp-buttons');
+  const name = allIngredients[idx].name.toLowerCase();
+  const journeys = slerpJourneys[name];
+
+  if (!journeys) {
+    panel.classList.add('hidden');
+    return;
+  }
+
+  panel.classList.remove('hidden');
+  btnsDiv.innerHTML = '';
+  for (const region of Object.keys(journeys)) {
+    const btn = document.createElement('button');
+    btn.className = 'slerp-btn';
+    btn.textContent = region;
+    btn.style.borderColor = REGIONS[region].hex + '44';
+    btn.addEventListener('click', () => startSlerpJourney(idx, region));
+    btnsDiv.appendChild(btn);
+  }
+}
+
+function startSlerpJourney(idx, targetRegion) {
+  clearSlerp();
+  slerpActive = true;
+  const name = allIngredients[idx].name.toLowerCase();
+  const waypoints = slerpJourneys[name][targetRegion];
+  const srcPos = getInterpolatedPosition(idx, sliderValue).clone();
+  const dstPos = centroids[targetRegion].clone();
+  const regionColor = REGIONS[targetRegion].color;
+
+  const controlPoints = [srcPos];
+  for (let i = 0; i < waypoints.length; i++) {
+    const t = (i + 1) / (waypoints.length + 1);
+    const p = new THREE.Vector3().lerpVectors(srcPos, dstPos, t);
+    p.y += Math.sin(t * Math.PI) * 3;
+    controlPoints.push(p);
+  }
+  controlPoints.push(dstPos);
+  slerpCurve = new THREE.CatmullRomCurve3(controlPoints);
+
+  const sphereGeo = new THREE.SphereGeometry(0.12, 16, 16);
+  const sphereMat = new THREE.MeshBasicMaterial({ color: regionColor, transparent: true, opacity: 0.9 });
+  slerpMesh = new THREE.Mesh(sphereGeo, sphereMat);
+  scene.add(slerpMesh);
+
+  const trailGeo = new THREE.BufferGeometry();
+  const trailPositions = new Float32Array(300 * 3);
+  trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+  trailGeo.setDrawRange(0, 0);
+  const trailMat = new THREE.LineBasicMaterial({
+    color: regionColor, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, linewidth: 3,
+  });
+  slerpTrailLine = new THREE.Line(trailGeo, trailMat);
+  scene.add(slerpTrailLine);
+  slerpTrailPoints = [];
+
+  slerpLabels = waypoints;
+  slerpProgress = 0;
+
+  const infoDiv = document.getElementById('slerp-info');
+  infoDiv.classList.remove('hidden');
+  infoDiv.innerHTML = `<div style="margin-bottom:6px;color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:1px">SLERP: ${allIngredients[idx].name} → ${targetRegion}</div>`;
+}
+
+function clearSlerp() {
+  slerpActive = false;
+  if (slerpMesh) { scene.remove(slerpMesh); slerpMesh = null; }
+  if (slerpTrailLine) { scene.remove(slerpTrailLine); slerpTrailLine = null; }
+  document.getElementById('slerp-info').classList.add('hidden');
+}
+
+function updateSlerp() {
+  if (!slerpActive || !slerpCurve || !slerpMesh) return;
+  slerpProgress += 0.003;
+  if (slerpProgress > 1) slerpProgress = 0;
+
+  const eased = slerpProgress < 0.5
+    ? 4 * slerpProgress * slerpProgress * slerpProgress
+    : 1 - Math.pow(-2 * slerpProgress + 2, 3) / 2;
+
+  const pos = slerpCurve.getPoint(eased);
+  slerpMesh.position.copy(pos);
+
+  slerpTrailPoints.push(pos.clone());
+  if (slerpTrailPoints.length > 300) slerpTrailPoints.shift();
+  const trailAttr = slerpTrailLine.geometry.getAttribute('position');
+  for (let i = 0; i < slerpTrailPoints.length; i++) {
+    trailAttr.array[i*3] = slerpTrailPoints[i].x;
+    trailAttr.array[i*3+1] = slerpTrailPoints[i].y;
+    trailAttr.array[i*3+2] = slerpTrailPoints[i].z;
+  }
+  trailAttr.needsUpdate = true;
+  slerpTrailLine.geometry.setDrawRange(0, slerpTrailPoints.length);
+
+  const infoDiv = document.getElementById('slerp-info');
+  const waypointIdx = Math.floor(eased * slerpLabels.length);
+  let html = `<div style="margin-bottom:6px;color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:1px">SLERP JOURNEY</div>`;
+  for (let i = 0; i < slerpLabels.length; i++) {
+    const active = i <= waypointIdx;
+    html += `<div style="opacity:${active ? 1 : 0.3};transition:opacity 0.3s">${active ? '●' : '○'} <span class="waypoint">${slerpLabels[i]}</span></div>`;
+  }
+  infoDiv.innerHTML = html;
+}
+
+// ─── SENSORY AXES ────────────────────────────────────────────
+const axesGroup = new THREE.Group();
+axesGroup.visible = false;
+scene.add(axesGroup);
+
+const axesData = [
+  { from: 'Sweet', to: 'Bitter', color: 0xff88aa, dir: new THREE.Vector3(1, 0.3, 0) },
+  { from: 'Spicy', to: 'Mild', color: 0xff4422, dir: new THREE.Vector3(0, 1, 0.3) },
+  { from: 'Protein', to: 'Carb', color: 0x44aaff, dir: new THREE.Vector3(0.3, 0, 1) },
+  { from: 'Umami', to: 'Fresh', color: 0x88ff44, dir: new THREE.Vector3(-0.5, 0.7, 0.5) },
+];
+
+for (const axis of axesData) {
+  const dir = axis.dir.clone().normalize().multiplyScalar(8);
+  const origin = dir.clone().negate();
+  const end = dir.clone();
+
+  const arrowGeo = new THREE.BufferGeometry().setFromPoints([origin, end]);
+  const arrowMat = new THREE.LineBasicMaterial({
+    color: axis.color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, linewidth: 2,
+  });
+  axesGroup.add(new THREE.Line(arrowGeo, arrowMat));
+
+  const coneGeo = new THREE.ConeGeometry(0.15, 0.5, 8);
+  const coneMat = new THREE.MeshBasicMaterial({ color: axis.color, transparent: true, opacity: 0.75 });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+  cone.position.copy(end);
+  cone.lookAt(end.clone().add(dir));
+  axesGroup.add(cone);
+
+  for (const [label, pos] of [[axis.from, origin], [axis.to, end]]) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = '24px -apple-system, sans-serif';
+    ctx.fillStyle = '#' + axis.color.toString(16).padStart(6, '0');
+    ctx.globalAlpha = 0.7;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, 128, 40);
+    const tex = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.position.copy(pos.clone().add(dir.clone().normalize().multiplyScalar(label === axis.from ? -1 : 1)));
+    sprite.scale.set(3, 0.75, 1);
+    axesGroup.add(sprite);
+  }
+}
+
+// ─── CONVEX HULLS ────────────────────────────────────────────
+const hullGroup = new THREE.Group();
+scene.add(hullGroup);
+let hullMeshes = {};
+
+function buildHulls(sv) {
+  while (hullGroup.children.length) hullGroup.remove(hullGroup.children[0]);
+  hullMeshes = {};
+
+  for (const [region, data] of Object.entries(REGIONS)) {
+    if (region === 'Universal') continue;
+    if (activeRegions.size > 0 && !activeRegions.has(region)) continue;
+
+    const pts = allIngredients
+      .filter(ing => ing.region === region)
+      .map((ing, _, arr) => {
+        const idx = allIngredients.indexOf(ing);
+        return getInterpolatedPosition(idx, sv);
+      });
+
+    if (pts.length < 4) continue;
+
+    try {
+      const hullGeo = new ConvexGeometry(pts);
+      const hullMat = new THREE.MeshBasicMaterial({
+        color: data.color, transparent: true, opacity: 0.08,
+        side: THREE.DoubleSide, depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(hullGeo, hullMat);
+      mesh.userData.region = region;
+      hullGroup.add(mesh);
+      hullMeshes[region] = mesh;
+    } catch(e) { /* degenerate hull */ }
+  }
+}
+
+// ─── CLUSTER CENTROID LABELS ─────────────────────────────────
+const centroidLabelGroup = new THREE.Group();
+scene.add(centroidLabelGroup);
+const centroidLabelSprites = {};
+
+function makeTextSprite(text, color, fontSize, opacity) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.font = `bold ${fontSize || 28}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = color;
+  ctx.globalAlpha = opacity !== undefined ? opacity : 0.7;
+  ctx.fillText(text, 256, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(4, 0.5, 1);
+  return sprite;
+}
+
+function computeRegionCentroid(region, sv) {
+  const pts = allIngredients
+    .filter(ing => ing.region === region)
+    .map(ing => getInterpolatedPosition(allIngredients.indexOf(ing), sv));
+  if (pts.length === 0) return null;
+  const centroid = new THREE.Vector3();
+  for (const p of pts) centroid.add(p);
+  centroid.divideScalar(pts.length);
+  return centroid;
+}
+
+function buildCentroidLabels(sv) {
+  while (centroidLabelGroup.children.length) centroidLabelGroup.remove(centroidLabelGroup.children[0]);
+
+  for (const [region, data] of Object.entries(REGIONS)) {
+    if (region === 'Universal') continue;
+
+    const centroid = computeRegionCentroid(region, sv);
+    if (!centroid) continue;
+
+    const sprite = makeTextSprite(region, data.hex, 28, 0.7);
+    sprite.position.copy(centroid);
+    sprite.position.y += 2.5;
+    sprite.userData.region = region;
+    sprite.userData.centroid = centroid.clone();
+    centroidLabelGroup.add(sprite);
+    centroidLabelSprites[region] = sprite;
+  }
+}
+
+// ─── CLUSTER DENSITY HALOS ──────────────────────────────────
+const haloGroup = new THREE.Group();
+scene.add(haloGroup);
+
+function makeHaloTexture(color) {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(0.4, color.replace(')', ',0.3)').replace('rgb(', 'rgba('));
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvas);
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgb(${r},${g},${b})`;
+}
+
+function buildHalos(sv) {
+  while (haloGroup.children.length) haloGroup.remove(haloGroup.children[0]);
+
+  for (const [region, data] of Object.entries(REGIONS)) {
+    if (region === 'Universal') continue;
+
+    const centroid = computeRegionCentroid(region, sv);
+    if (!centroid) continue;
+
+    const rgbStr = hexToRgb(data.hex);
+    const tex = makeHaloTexture(rgbStr);
+    const mat = new THREE.SpriteMaterial({
+      map: tex, transparent: true, opacity: 0.15,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.position.copy(centroid);
+    sprite.scale.set(4, 4, 1);
+    sprite.userData.region = region;
+    haloGroup.add(sprite);
+  }
+}
+
+// ─── INGREDIENT LABELS (semantic zoom) ──────────────────────
+const ingredientLabelGroup = new THREE.Group();
+scene.add(ingredientLabelGroup);
+const ingredientLabels = [];
+
+function makeIngredientLabel(text) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  ctx.font = '14px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.fillText(text, 128, 16);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(2.5, 0.3, 1);
+  sprite.visible = false;
+  return sprite;
+}
+
+for (let i = 0; i < count; i++) {
+  const sprite = makeIngredientLabel(allIngredients[i].name);
+  const pos = getInterpolatedPosition(i, sliderValue);
+  sprite.position.set(pos.x, pos.y + 0.35, pos.z);
+  ingredientLabelGroup.add(sprite);
+  ingredientLabels.push({ sprite, idx: i });
+}
+
+function updateIngredientLabelPositions(sv) {
+  for (let i = 0; i < ingredientLabels.length; i++) {
+    const pos = getInterpolatedPosition(i, sv);
+    ingredientLabels[i].sprite.position.set(pos.x, pos.y + 0.35, pos.z);
+  }
+}
+
+const LABEL_DISTANCE_THRESHOLD = 12;
+
+function updateSemanticZoom() {
+  const camPos = camera.position;
+  for (let i = 0; i < ingredientLabels.length; i++) {
+    const lbl = ingredientLabels[i];
+    const pos = getInterpolatedPosition(i, sliderValue);
+    const dist = camPos.distanceTo(pos);
+    lbl.sprite.visible = dist < LABEL_DISTANCE_THRESHOLD;
+  }
+}
+
+// ─── SEARCH ─────────────────────────────────────────────────
+let searchQuery = '';
+let searchMatches = [];
+let autocompleteIdx = -1;
+let pulseStartTime = 0;
+let pulsingIndices = [];
+
+// Levenshtein distance
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function searchScore(query, name) {
+  const q = query.toLowerCase();
+  const n = name.toLowerCase();
+  if (n === q) return 100;
+  if (n.startsWith(q)) return 90;
+  if (n.includes(q)) return 70;
+  // Word-start match: query matches start of any word in name
+  const words = n.split(/[\s\-]+/);
+  for (const w of words) {
+    if (w.startsWith(q)) return 65;
+  }
+  // Levenshtein only against words that start with the same letter
+  if (q.length >= 3) {
+    for (const w of words) {
+      if (w[0] !== q[0]) continue;
+      const target = w.substring(0, q.length + 1);
+      const dist = levenshtein(q, target);
+      if (dist <= 1) return 30;
+    }
+  }
+  return 0;
+}
+
+function highlightMatch(name, query) {
+  const q = query.toLowerCase();
+  const n = name.toLowerCase();
+  const idx = n.indexOf(q);
+  if (idx >= 0) {
+    return name.substring(0, idx) +
+      '<span class="match">' + name.substring(idx, idx + q.length) + '</span>' +
+      name.substring(idx + q.length);
+  }
+  // Word-start: highlight matching prefix of each word
+  const words = n.split(/(\s+|-)/);
+  const nameWords = name.split(/(\s+|-)/);
+  for (let i = 0; i < words.length; i++) {
+    if (words[i].startsWith(q)) {
+      return nameWords.slice(0, i).join('') +
+        '<span class="match">' + nameWords[i].substring(0, q.length) + '</span>' +
+        nameWords[i].substring(q.length) +
+        nameWords.slice(i + 1).join('');
+    }
+  }
+  return name;
+}
+
+const searchInput = document.getElementById('search-input');
+const matchCountEl = document.getElementById('match-count');
+const autocompleteEl = document.getElementById('autocomplete');
+
+function updateSearch() {
+  const query = searchInput.value.trim();
+  searchQuery = query;
+
+  if (query.length === 0) {
+    searchMatches = [];
+    matchCountEl.className = '';
+    matchCountEl.style.display = 'none';
+    autocompleteEl.classList.remove('visible');
+    searchInput.style.borderColor = 'rgba(255,255,255,0.1)';
+    applyVisibilityFilters();
+    return;
+  }
+
+  // Score all ingredients
+  const scored = allIngredients.map((ing, i) => ({
+    idx: i, name: ing.name, region: ing.region,
+    score: searchScore(query, ing.name)
+  })).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+
+  searchMatches = scored;
+
+  // Update input border
+  if (scored.length > 0) {
+    searchInput.style.borderColor = 'rgba(68,221,136,0.4)';
+  } else {
+    searchInput.style.borderColor = 'rgba(255,68,68,0.4)';
+  }
+
+  // Update match count
+  matchCountEl.textContent = scored.length;
+  if (scored.length > 0) {
+    matchCountEl.className = 'has-matches';
+  } else {
+    matchCountEl.className = 'no-matches';
+  }
+
+  // Autocomplete dropdown (max 8)
+  const topResults = scored.slice(0, 8);
+  if (topResults.length > 0) {
+    autocompleteEl.innerHTML = topResults.map((r, i) =>
+      `<div class="autocomplete-item${i === autocompleteIdx ? ' active' : ''}" data-idx="${r.idx}">
+        <div class="dot" style="background:${REGIONS[r.region].hex}"></div>
+        <div>${highlightMatch(r.name, query)}</div>
+      </div>`
+    ).join('');
+    autocompleteEl.classList.add('visible');
+
+    // Click handlers
+    autocompleteEl.querySelectorAll('.autocomplete-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx);
+        selectIngredient(idx);
+      });
+    });
+  } else {
+    autocompleteEl.classList.remove('visible');
+  }
+
+  // Apply visibility
+  applyVisibilityFilters();
+
+  // Pulse matched particles
+  const matchedIndices = scored.map(s => s.idx);
+  pulsingIndices = matchedIndices;
+  pulseStartTime = performance.now();
+
+  // Camera reframe for 1-3 matches
+  if (scored.length >= 1 && scored.length <= 3) {
+    const positions = scored.map(s => getInterpolatedPosition(s.idx, sliderValue));
+    const center = new THREE.Vector3();
+    for (const p of positions) center.add(p);
+    center.divideScalar(positions.length);
+    startCameraFlyTo(center, 1.0);
+  }
+}
+
+function selectIngredient(idx) {
+  selectedIdx = idx;
+  clearSlerp();
+  showNeighborLines(idx);
+  const pos = getInterpolatedPosition(idx, sliderValue);
+  startCameraFlyTo(pos.clone(), 1.0);
+
+  // Clear search
+  searchInput.value = '';
+  searchQuery = '';
+  searchMatches = [];
+  matchCountEl.style.display = 'none';
+  matchCountEl.className = '';
+  autocompleteEl.classList.remove('visible');
+  searchInput.style.borderColor = 'rgba(255,255,255,0.1)';
+  autocompleteIdx = -1;
+  applyVisibilityFilters();
+
+  document.getElementById('instructions').style.opacity = '0';
+}
+
+searchInput.addEventListener('input', () => {
+  autocompleteIdx = -1;
+  updateSearch();
+});
+
+searchInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+
+  const items = autocompleteEl.querySelectorAll('.autocomplete-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    autocompleteIdx = Math.min(autocompleteIdx + 1, items.length - 1);
+    updateAutocompleteHighlight(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    autocompleteIdx = Math.max(autocompleteIdx - 1, -1);
+    updateAutocompleteHighlight(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (autocompleteIdx >= 0 && autocompleteIdx < items.length) {
+      const idx = parseInt(items[autocompleteIdx].dataset.idx);
+      selectIngredient(idx);
+    } else if (searchMatches.length === 1) {
+      selectIngredient(searchMatches[0].idx);
+    }
+  } else if (e.key === 'Escape') {
+    searchInput.value = '';
+    searchInput.blur();
+    updateSearch();
+    clearSelection();
+  }
+});
+
+function updateAutocompleteHighlight(items) {
+  items.forEach((el, i) => {
+    el.classList.toggle('active', i === autocompleteIdx);
+  });
+}
+
+// ─── LEGEND (clickable filter) ──────────────────────────────
+const activeRegions = new Set();
+
+function applyVisibilityFilters() {
+  const opAttr = geometry.getAttribute('opacity');
+  const hasRegionFilter = activeRegions.size > 0;
+  const matchedSet = new Set(searchMatches.map(m => m.idx));
+
+  for (let i = 0; i < count; i++) {
+    const ing = allIngredients[i];
+    let visible = true;
+
+    if (hasRegionFilter && !activeRegions.has(ing.region)) {
+      visible = false;
+    }
+
+    if (searchQuery.length > 0) {
+      if (!matchedSet.has(i)) {
+        visible = false;
+      }
+    }
+
+    opAttr.array[i] = visible ? 1.0 : (searchQuery.length > 0 ? 0.12 : 0.08);
+  }
+  opAttr.needsUpdate = true;
+
+  for (const [region, mesh] of Object.entries(hullMeshes)) {
+    mesh.visible = !hasRegionFilter || activeRegions.has(region);
+  }
+  for (const child of haloGroup.children) {
+    child.visible = !hasRegionFilter || activeRegions.has(child.userData.region);
+  }
+  for (const child of centroidLabelGroup.children) {
+    child.visible = !hasRegionFilter || activeRegions.has(child.userData.region);
+  }
+}
+
+function buildLegend() {
+  const itemsDiv = document.getElementById('legend-items');
+  itemsDiv.innerHTML = '';
+
+  for (const [name, data] of Object.entries(REGIONS)) {
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    row.dataset.region = name;
+    row.innerHTML = `<div class="legend-dot" style="background:${data.hex}"></div><div class="legend-label">${name}</div>`;
+
+    row.addEventListener('click', (e) => {
+      if (e.shiftKey) {
+        if (activeRegions.has(name)) activeRegions.delete(name);
+        else activeRegions.add(name);
+      } else {
+        if (activeRegions.size === 1 && activeRegions.has(name)) activeRegions.clear();
+        else { activeRegions.clear(); activeRegions.add(name); }
+      }
+      updateLegendVisuals();
+      applyVisibilityFilters();
+      buildHulls(sliderValue);
+    });
+
+    itemsDiv.appendChild(row);
+  }
+
+  const showAllBtn = document.createElement('button');
+  showAllBtn.id = 'legend-show-all';
+  showAllBtn.textContent = 'ALL';
+  showAllBtn.addEventListener('click', () => {
+    activeRegions.clear();
+    updateLegendVisuals();
+    applyVisibilityFilters();
+    buildHulls(sliderValue);
+  });
+  itemsDiv.appendChild(showAllBtn);
+
+  document.getElementById('legend-header').addEventListener('click', () => {
+    itemsDiv.classList.toggle('collapsed');
+    document.querySelector('#legend-header .arrow').style.transform =
+      itemsDiv.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+  });
+}
+
+function updateLegendVisuals() {
+  const rows = document.querySelectorAll('.legend-row');
+  const hasFilter = activeRegions.size > 0;
+  rows.forEach(row => {
+    const region = row.dataset.region;
+    row.classList.toggle('inactive', hasFilter && !activeRegions.has(region));
+  });
+}
+
+buildLegend();
+
+// ─── CAMERA FLY-TO ──────────────────────────────────────────
+let flyToActive = false;
+let flyToTargetPos = null;
+let flyToTargetCenter = null;
+let flyToStartPos = null;
+let flyToStartCenter = null;
+let flyToStartTime = 0;
+let flyToDuration = 1.5;
+
+function startCameraFlyTo(targetCenter, duration) {
+  flyToActive = true;
+  flyToTargetCenter = targetCenter.clone();
+  const offset = camera.position.clone().sub(controls.target).normalize().multiplyScalar(8);
+  flyToTargetPos = targetCenter.clone().add(offset);
+  flyToStartPos = camera.position.clone();
+  flyToStartCenter = controls.target.clone();
+  flyToStartTime = performance.now();
+  flyToDuration = (duration || 1.5) * 1000;
+}
+
+function updateCameraFlyTo(now) {
+  if (!flyToActive) return;
+  let t = (now - flyToStartTime) / flyToDuration;
+  if (t >= 1) { t = 1; flyToActive = false; }
+  const eased = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+  camera.position.lerpVectors(flyToStartPos, flyToTargetPos, eased);
+  controls.target.lerpVectors(flyToStartCenter, flyToTargetCenter, eased);
+}
+
+// ─── SLIDER ──────────────────────────────────────────────────
+const modelSlider = document.getElementById('model-slider');
+const snapBtns = document.querySelectorAll('.snap-btn');
+const centerNotch = document.getElementById('snap-notch-1');
+
+function updateSnapBtnHighlight(sv) {
+  snapBtns.forEach(btn => {
+    const v = parseFloat(btn.dataset.value);
+    btn.classList.toggle('active', Math.abs(sv - v) < 0.05);
+  });
+  // Highlight center snap notch when nearby
+  centerNotch.classList.toggle('nearby', Math.abs(sv - 1) < 0.15);
+}
+
+// Track whether slider is actively being dragged
+let needsHullRebuild = false;
+
+// ─── MODEL INFO CARD DATA ───────────────────────────────────
+const modelInfoData = {
+  cooc: {
+    name: 'COOC',
+    color: '#ff4444',
+    desc: 'Organized by <strong>recipe co-occurrence</strong>. Ingredients that get cooked together in the same dishes appear as neighbors.',
+    example: 'chicken → <span>garlic, onion, black pepper, turkey</span>',
+    tag: 'co-occurrence',
+    geometry: 'Diffuse, isotropic clusters (PR = 173.6)',
+  },
+  core: {
+    name: 'CORE',
+    color: '#bb66ff',
+    desc: 'A <strong>blend</strong> of recipe co-occurrence and flavor chemistry. Balances cultural cooking patterns with shared chemical compounds.',
+    example: 'chicken → <span>pork, beef, peanut, chicken broth</span>',
+    tag: 'blended',
+    geometry: 'Tight, compressed clusters (PR = 94.2)',
+  },
+  chem: {
+    name: 'CHEM',
+    color: '#44dd88',
+    desc: 'Organized by <strong>shared flavor compounds</strong> from FlavorDB. Ingredients that taste or smell similar appear as neighbors, regardless of cuisine.',
+    example: 'chicken → <span>beef, pork, cream of chicken soup</span>',
+    tag: 'chemistry',
+    geometry: 'Diffuse, isotropic clusters (PR = 183.1)',
+  },
+};
+
+const modelInfoCard = document.getElementById('model-info');
+const modelInfoDot = document.getElementById('model-info-dot');
+const modelInfoName = document.getElementById('model-info-name');
+const modelInfoTag = document.getElementById('model-info-tag');
+const modelInfoDesc = document.getElementById('model-info-desc');
+const modelInfoExample = document.getElementById('model-info-example');
+
+function updateModelInfoCard(sv) {
+  let data, t;
+  if (sv <= 0.5) {
+    data = modelInfoData.cooc;
+    t = 0;
+  } else if (sv <= 1.5) {
+    if (sv <= 1.0) {
+      // Transition cooc → core
+      t = (sv - 0.5) / 0.5;
+      data = t < 0.5 ? modelInfoData.cooc : modelInfoData.core;
+    } else {
+      // Transition core → chem
+      t = (sv - 1.0) / 0.5;
+      data = t < 0.5 ? modelInfoData.core : modelInfoData.chem;
+    }
+  } else {
+    data = modelInfoData.chem;
+    t = 0;
+  }
+
+  // Determine dominant model for display
+  let dominant;
+  if (sv < 0.35) dominant = modelInfoData.cooc;
+  else if (sv < 0.65) {
+    const blend = (sv - 0.35) / 0.3;
+    dominant = blend < 0.5 ? modelInfoData.cooc : modelInfoData.core;
+  }
+  else if (sv < 1.35) dominant = modelInfoData.core;
+  else if (sv < 1.65) {
+    const blend = (sv - 1.35) / 0.3;
+    dominant = blend < 0.5 ? modelInfoData.core : modelInfoData.chem;
+  }
+  else dominant = modelInfoData.chem;
+
+  modelInfoDot.style.background = dominant.color;
+  modelInfoName.textContent = dominant.name;
+  modelInfoName.style.color = dominant.color;
+  modelInfoTag.textContent = dominant.tag;
+  modelInfoDesc.innerHTML = dominant.desc;
+  modelInfoExample.innerHTML = 'e.g. ' + dominant.example;
+  modelInfoCard.style.borderColor = dominant.color + '22';
+}
+
+updateModelInfoCard(0); // initial state
+
+function onSliderChange() {
+  sliderValue = parseFloat(modelSlider.value);
+  updatePositionsFromSlider(sliderValue);
+  updateIngredientLabelPositions(sliderValue);
+  updateSnapBtnHighlight(sliderValue);
+  updateCentroidAndHaloPositions(sliderValue);
+  updateModelInfoCard(sliderValue);
+  needsHullRebuild = true;
+
+  // Update neighbor lines if selected
+  if (selectedIdx >= 0) {
+    showNeighborLines(selectedIdx);
+  }
+}
+
+// Rebuild hulls every frame while dragging (particles are already smooth, so hulls morph smoothly)
+function updateHullsIfNeeded() {
+  if (!needsHullRebuild) return;
+  needsHullRebuild = false;
+  buildHulls(sliderValue);
+}
+
+
+function updateCentroidAndHaloPositions(sv) {
+  // Quick update: move existing sprites to new centroid positions
+  for (const child of centroidLabelGroup.children) {
+    const region = child.userData.region;
+    if (!region) continue;
+    const centroid = computeRegionCentroid(region, sv);
+    if (centroid) {
+      child.position.copy(centroid);
+      child.position.y += 2.5;
+      child.userData.centroid = centroid.clone();
+    }
+  }
+  for (const child of haloGroup.children) {
+    const region = child.userData.region;
+    if (!region) continue;
+    const centroid = computeRegionCentroid(region, sv);
+    if (centroid) child.position.copy(centroid);
+  }
+}
+
+modelSlider.addEventListener('input', onSliderChange);
+
+// Double-click slider to reset to center (Core)
+modelSlider.addEventListener('dblclick', () => {
+  modelSlider.value = 1;
+  onSliderChange();
+});
+
+// Snap buttons — animate slider to snap point
+let sliderAnimTarget = null;
+let sliderAnimating = false;
+
+snapBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    sliderAnimTarget = parseFloat(btn.dataset.value);
+    sliderAnimating = true;
+  });
+});
+
+function updateSliderAnimation() {
+  if (!sliderAnimating) return;
+  const current = parseFloat(modelSlider.value);
+  const diff = sliderAnimTarget - current;
+  if (Math.abs(diff) < 0.005) {
+    modelSlider.value = sliderAnimTarget;
+    sliderAnimating = false;
+    onSliderChange();
+    return;
+  }
+  modelSlider.value = current + diff * 0.1;
+  onSliderChange();
+}
+
+// ─── RAYCASTER ───────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.4;
+const mouse = new THREE.Vector2();
+let hoveredIdx = -1;
+const hoverLabel = document.getElementById('hover-label');
+
+renderer.domElement.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObject(points);
+
+  if (intersects.length > 0) {
+    const idx = intersects[0].index;
+    hoveredIdx = idx;
+    hoverLabel.style.display = 'block';
+    hoverLabel.style.left = (e.clientX + 14) + 'px';
+    hoverLabel.style.top = (e.clientY - 14) + 'px';
+    hoverLabel.textContent = allIngredients[idx].name;
+    hoverLabel.style.borderColor = REGIONS[allIngredients[idx].region].hex + '66';
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    hoveredIdx = -1;
+    hoverLabel.style.display = 'none';
+    renderer.domElement.style.cursor = 'default';
+  }
+});
+
+function clearSelection() {
+  selectedIdx = -1;
+  clearLines();
+  clearSlerp();
+  document.getElementById('info-panel').classList.add('hidden');
+  document.getElementById('slerp-panel').classList.add('hidden');
+}
+
+renderer.domElement.addEventListener('click', () => {
+  if (hoveredIdx >= 0) {
+    selectedIdx = hoveredIdx;
+    clearSlerp();
+    showNeighborLines(selectedIdx);
+    document.getElementById('instructions').style.opacity = '0';
+  } else {
+    clearSelection();
+  }
+});
+
+// Double-click on hull → fly to cluster
+renderer.domElement.addEventListener('dblclick', () => {
+  raycaster.setFromCamera(mouse, camera);
+
+  const centroidIntersects = raycaster.intersectObjects(centroidLabelGroup.children);
+  if (centroidIntersects.length > 0) {
+    const centroid = centroidIntersects[0].object.userData.centroid;
+    if (centroid) { startCameraFlyTo(centroid, 1.5); return; }
+  }
+
+  const hullIntersects = raycaster.intersectObjects(hullGroup.children);
+  if (hullIntersects.length > 0) {
+    const region = hullIntersects[0].object.userData.region;
+    const centroid = computeRegionCentroid(region, sliderValue);
+    if (centroid) startCameraFlyTo(centroid, 1.5);
+  }
+});
+
+// ─── ESCAPE KEY ──────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    // Clear search
+    searchInput.value = '';
+    searchQuery = '';
+    searchMatches = [];
+    matchCountEl.style.display = 'none';
+    matchCountEl.className = '';
+    autocompleteEl.classList.remove('visible');
+    searchInput.style.borderColor = 'rgba(255,255,255,0.1)';
+    autocompleteIdx = -1;
+
+    // Clear selection
+    clearSelection();
+
+    // Reset region filters
+    activeRegions.clear();
+    updateLegendVisuals();
+    applyVisibilityFilters();
+  }
+});
+
+// ─── AXES TOGGLE ─────────────────────────────────────────────
+document.getElementById('axes-toggle').addEventListener('click', () => {
+  axesGroup.visible = !axesGroup.visible;
+  document.getElementById('axes-toggle').classList.toggle('active');
+});
+
+// ─── AUTO-ROTATION PAUSE ─────────────────────────────────────
+let lastInteraction = 0;
+controls.addEventListener('start', () => {
+  controls.autoRotate = false;
+  lastInteraction = performance.now();
+});
+
+// ─── RESIZE ──────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  pointsMaterial.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2);
+});
+
+// ─── INSTRUCTIONS FADE ──────────────────────────────────────
+setTimeout(() => {
+  document.getElementById('instructions').style.opacity = '0';
+}, 8000);
+
+// ─── INITIAL BUILD ──────────────────────────────────────────
+buildHulls(sliderValue);
+buildCentroidLabels(sliderValue);
+buildHalos(sliderValue);
+
+// ─── ANIMATE ─────────────────────────────────────────────────
+function animate(now) {
+  requestAnimationFrame(animate);
+
+  // Resume auto-rotation after idle
+  if (!controls.autoRotate && now - lastInteraction > 5000) {
+    controls.autoRotate = true;
+  }
+
+  controls.update();
+  updateSliderAnimation();
+  updateHullsIfNeeded();
+  updateSlerp();
+  updateCameraFlyTo(now);
+  updateSemanticZoom();
+
+  // Pulse selected particle
+  if (selectedIdx >= 0) {
+    const sizeAttr = geometry.getAttribute('size');
+    for (let i = 0; i < count; i++) {
+      sizeAttr.array[i] = i === selectedIdx
+        ? 0.5 + Math.sin(now * 0.005) * 0.1
+        : (allIngredients[i].region === 'Universal' ? 0.45 : 0.35);
+    }
+    sizeAttr.needsUpdate = true;
+  }
+
+  // Pulse search matches (400ms animation)
+  if (pulsingIndices.length > 0 && pulseStartTime > 0) {
+    const elapsed = now - pulseStartTime;
+    if (elapsed < 400) {
+      const sizeAttr = geometry.getAttribute('size');
+      const t = elapsed / 400;
+      // 0→0.5: grow, 0.5→1: shrink
+      const pulse = t < 0.5 ? 0.35 + 0.20 * (t / 0.5) : 0.55 - 0.20 * ((t - 0.5) / 0.5);
+      for (const idx of pulsingIndices) {
+        sizeAttr.array[idx] = pulse;
+      }
+      sizeAttr.needsUpdate = true;
+    } else {
+      // Reset sizes
+      const sizeAttr = geometry.getAttribute('size');
+      for (const idx of pulsingIndices) {
+        sizeAttr.array[idx] = allIngredients[idx].region === 'Universal' ? 0.45 : 0.35;
+      }
+      sizeAttr.needsUpdate = true;
+      pulsingIndices = [];
+      pulseStartTime = 0;
+    }
+  }
+
+  // Animate line opacity
+  for (const line of lineGroup.children) {
+    line.material.opacity = 0.55 + Math.sin(now * 0.003) * 0.2;
+  }
+
+  // SLERP sphere glow
+  if (slerpMesh) {
+    slerpMesh.scale.setScalar(1 + Math.sin(now * 0.008) * 0.2);
+  }
+
+  composer.render();
+}
+
+animate(0);
+
+// ─── WELCOME OVERLAY ────────────────────────────────────────
+const welcome = document.getElementById('welcome');
+document.getElementById('welcome-start').addEventListener('click', () => {
+  welcome.classList.add('hidden');
+  setTimeout(() => { welcome.style.display = 'none'; }, 600);
+});
+
+// ─── MODAL (INFO + KEYBOARD) ───────────────────────────────
+const modalOverlay = document.getElementById('modal-overlay');
+const modalContent = document.getElementById('modal-content');
+
+function openModal(html) {
+  modalContent.innerHTML = html;
+  modalOverlay.classList.add('visible');
+}
+function closeModal() {
+  modalOverlay.classList.remove('visible');
+}
+
+document.getElementById('modal-close').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+const aboutHTML = `
+  <h2>ABOUT</h2>
+  <p>This visualization explores <strong>food ingredient embeddings</strong> from the paper
+  <em>"Epicure: Navigating the Emergent Geometry of Food Ingredient Embeddings"</em>
+  by Radzikowski &amp; Chen (2026).</p>
+
+  <span class="section-label">What am I seeing?</span>
+  <p>Each glowing dot is a <strong>food ingredient</strong> — from soy sauce to saffron, miso to maple syrup.
+  They're positioned in 3D based on how they relate to each other across <strong>4.14 million recipes</strong>
+  from 7 languages. Ingredients that co-occur in recipes or share flavor chemistry appear near each other.</p>
+
+  <span class="section-label">Colors = Cuisine Regions</span>
+  <p>The 8 colors represent cuisine macro-regions: East Asian, Japanese, Southeast Asian, South Asian,
+  Latin American, Mediterranean, Eastern European, and Western Atlantic. Grey dots are universal ingredients
+  (salt, pepper, garlic, etc.) used across all cuisines.</p>
+
+  <span class="section-label">The Three Models</span>
+  <p><strong>COOC</strong> — organizes by recipe co-occurrence: "what gets cooked together?"<br>
+  <strong>CORE</strong> — blends co-occurrence with chemistry signals<br>
+  <strong>CHEM</strong> — organizes by shared flavor compounds: "what tastes similar?"</p>
+  <p>Drag the slider to morph between them. Notice how the same ingredients rearrange — chicken's
+  nearest neighbor shifts from garlic (COOC) to pork (CORE) to beef (CHEM).</p>
+
+  <span class="section-label">Semi-transparent shapes</span>
+  <p>The translucent shells around each color cluster are <strong>convex hulls</strong> — they show the
+  boundary of each cuisine region. Watch them morph as you drag the slider.</p>
+
+  <span class="section-label">Sensory Axes</span>
+  <p>Toggle "Sensory Axes" to see directional arrows (Sweet↔Bitter, Spicy↔Mild, etc.) showing that
+  flavor properties are linearly encoded in the space — ingredients toward one end of an axis share that property.</p>
+`;
+
+const keyboardHTML = `
+  <h2>CONTROLS</h2>
+
+  <span class="section-label">Mouse</span>
+  <ul>
+    <li><strong>Orbit</strong> — click and drag the canvas</li>
+    <li><strong>Zoom</strong> — scroll wheel</li>
+    <li><strong>Pan</strong> — right-click and drag</li>
+    <li><strong>Hover</strong> — see ingredient name</li>
+    <li><strong>Click</strong> an ingredient — select it, show nearest neighbors</li>
+    <li><strong>Click empty</strong> space — deselect</li>
+    <li><strong>Double-click</strong> a cluster label — fly to that region</li>
+  </ul>
+
+  <span class="section-label">Keyboard</span>
+  <ul>
+    <li><span class="key">Esc</span> Clear search, deselect, reset filters</li>
+    <li><span class="key">/</span> Focus search bar</li>
+    <li><span class="key">↑</span> <span class="key">↓</span> Navigate search results</li>
+    <li><span class="key">Enter</span> Select search result</li>
+    <li><span class="key">?</span> Toggle this help</li>
+    <li><span class="key">i</span> About this visualization</li>
+  </ul>
+
+  <span class="section-label">Slider</span>
+  <ul>
+    <li><strong>Drag</strong> — morph between COOC ↔ CORE ↔ CHEM</li>
+    <li><strong>Click labels</strong> — snap to that model</li>
+    <li><strong>Double-click track</strong> — reset to CORE (center)</li>
+  </ul>
+
+  <span class="section-label">Legend</span>
+  <ul>
+    <li><strong>Click</strong> a region — isolate it</li>
+    <li><strong>Shift+click</strong> — compare multiple regions</li>
+    <li><strong>ALL</strong> button — show all regions</li>
+  </ul>
+`;
+
+document.getElementById('info-btn').addEventListener('click', () => openModal(aboutHTML));
+document.getElementById('keyboard-btn').addEventListener('click', () => openModal(keyboardHTML));
+
+// Keyboard shortcuts for modal
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '?' || (e.key === '/' && !modalOverlay.classList.contains('visible'))) {
+    if (e.key === '?') {
+      e.preventDefault();
+      if (modalOverlay.classList.contains('visible')) closeModal();
+      else openModal(keyboardHTML);
+    }
+    if (e.key === '/') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  }
+  if (e.key === 'i' && !modalOverlay.classList.contains('visible')) {
+    openModal(aboutHTML);
+  }
+  if (e.key === 'Escape' && modalOverlay.classList.contains('visible')) {
+    closeModal();
+  }
+});
+
+</script>
+</body>
+</html>
